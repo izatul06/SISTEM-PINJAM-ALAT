@@ -35,7 +35,7 @@ def save_data(data_df):
     if not os.path.isfile(DATA_FILE):
         data_df.to_csv(DATA_FILE, index=False)
     else:
-        df_existing = pd.read_csv(DATA_FILE, dtype={'No_Siri': str})
+        df_existing = pd.read_csv(DATA_FILE, dtype={'No_Siri': str, 'ID': str})
         df_combined = pd.concat([df_existing, data_df], ignore_index=True)
         df_combined.to_csv(DATA_FILE, index=False)
 
@@ -50,14 +50,22 @@ def komponen_masa(label_khas):
     return f"{jam}:{minit} {ampm}"
 
 # --- KONFIGURASI HALAMAN ---
-st.set_page_config(page_title="Sistem Pinjam Alat DGU Pro", layout="wide")
+st.set_page_config(page_title="Sistem Pinjam Alat DGU PUO", layout="wide")
 
 if 'staff_password' not in st.session_state:
     st.session_state.staff_password = "staff123"
 
-st.sidebar.title("🚪 Menu Utama")
-peranan = st.sidebar.radio("Sila Pilih Peranan:", ["Pelajar (Student)", "Kakitangan (Staff)"])
+# --- SIDEBAR DENGAN LOGOPOLI ---
+with st.sidebar:
+    if os.path.isfile("LOGOPOLI.png"):
+        st.image("LOGOPOLI.png", use_container_width=True)
+    else:
+        st.info("🖼️ [Sila letakkan LOGOPOLI.png]")
+    
+    st.title("🚪 Menu Utama")
+    peranan = st.sidebar.radio("Sila Pilih Peranan:", ["Pelajar (Student)", "Kakitangan (Staff)"])
 
+# --- MODUL PELAJAR ---
 if peranan == "Pelajar (Student)":
     st.title("🛠️ Borang Peminjaman Alatan (Student)")
     tab1, tab2, tab3 = st.tabs(["📋 Mohon Pinjaman", "🔄 Pulang Alat", "🔔 Status Kelulusan"])
@@ -85,7 +93,7 @@ if peranan == "Pelajar (Student)":
             no_phone = st.text_input("No. Telefon (Ketua)")
         with col2:
             kelas = st.selectbox("Pilih Kelas", ["", "DGU1A", "DGU2A", "DGU2B", "DGU3A", "DGU4A", "DGU4B", "DGU4C"])
-            nama_lecturer = st.selectbox("Pensyarah Penyelia", ["", "Encik Asri", "Encik Zahir", "Encik Syed", "Encik Omar", "Encik Hairie", "Puan Laila", "Puan Ila", "Puan Naza", "Puan Nooriza", "Puan Masreta"])
+            nama_lecturer = st.selectbox("Pensyarah Penyelia", ["", "Encik Asri", "Encik Zahir", "Encik Syed", "Encik Omar", "Puan Laila", "Puan Ila", "Puan Naza", "Puan Nooriza", "Puan Masreta"])
             subjek = st.selectbox("Subjek", ["", "Basic Survey", "Eng Survey 1", "Eng Survey 2", "Eng Survey 3", "Cadas 1", "Cadas 2", "Astronomy"])
 
         st.markdown("---")
@@ -93,8 +101,6 @@ if peranan == "Pelajar (Student)":
         
         if 'pilihan_siri' not in st.session_state: 
             st.session_state.pilihan_siri = []
-        
-        # KEY RESET: Digunakan untuk memaksa checkbox render semula bila reset ditekan
         if 'reset_key' not in st.session_state:
             st.session_state.reset_key = 0
 
@@ -108,7 +114,6 @@ if peranan == "Pelajar (Student)":
             cols = st.columns(5)
             for i, siri in enumerate(siri_list):
                 with cols[i % 5]:
-                    # Guna reset_key supaya widget checkbox di-reset sepenuhnya secara visual
                     ckey = f"cb_{siri}_{st.session_state.reset_key}"
                     if st.checkbox(f"🆔 {siri}", key=ckey, value=(siri in st.session_state.pilihan_siri)):
                         if siri not in st.session_state.pilihan_siri:
@@ -125,7 +130,7 @@ if peranan == "Pelajar (Student)":
             
             if st.button("Kosongkan Semua Pilihan 🗑️"):
                 st.session_state.pilihan_siri = []
-                st.session_state.reset_key += 1 # Paksa widget checkbox lama dibuang
+                st.session_state.reset_key += 1
                 st.rerun()
 
         st.markdown("---")
@@ -140,7 +145,7 @@ if peranan == "Pelajar (Student)":
             if senarai_nama_pemohon and id_pelajar and st.session_state.pilihan_siri and kelas != "":
                 ringkasan_final = [f"{df_stok[df_stok['No_Siri']==s]['Nama_Alat'].values[0]} ({s})" for s in st.session_state.pilihan_siri]
                 data_baru = pd.DataFrame([{
-                    "Nama": nama_gabung, "ID": id_pelajar, "No_Phone": no_phone,
+                    "Nama": nama_gabung, "ID": str(id_pelajar), "No_Phone": no_phone,
                     "Kelas": kelas, "Pensyarah": nama_lecturer, "Subjek": subjek,
                     "No_Siri": ", ".join(st.session_state.pilihan_siri), 
                     "Alatan_Lengkap": ", ".join(ringkasan_final),
@@ -162,7 +167,7 @@ if peranan == "Pelajar (Student)":
     with tab2:
         st.header("🔄 Proses Pemulangan")
         if os.path.isfile(DATA_FILE):
-            df_p = pd.read_csv(DATA_FILE, dtype={'No_Siri': str})
+            df_p = pd.read_csv(DATA_FILE, dtype={'No_Siri': str, 'ID': str})
             df_boleh_pulang = df_p[df_p['Status_Pinjam'] == "Diluluskan"]
             if not df_boleh_pulang.empty:
                 list_pilihan = [f"{r['Nama'].split(',')[0]} (Ketua) - {r['Alatan_Lengkap']}" for _, r in df_boleh_pulang.iterrows()]
@@ -183,38 +188,60 @@ if peranan == "Pelajar (Student)":
         st.header("🔔 Semakan Status Kelulusan")
         id_semak = st.text_input("Masukkan ID Pelajar (Ketua) untuk semak:")
         if id_semak and os.path.isfile(DATA_FILE):
-            df_status = pd.read_csv(DATA_FILE)
-            hasil = df_status[df_status['ID'] == id_semak].tail(1)
+            df_status = pd.read_csv(DATA_FILE, dtype={'ID': str})
+            hasil = df_status[df_status['ID'] == str(id_semak)]
             if not hasil.empty:
-                st.write(f"Status Terkini: **{hasil['Status_Pinjam'].values[0]}**")
-                if hasil['Status_Pinjam'].values[0] == "Diluluskan":
+                rekod = hasil.iloc[-1]
+                st.info(f"Peminjam: **{rekod['Nama']}**")
+                st.write(f"Status Terkini: **{rekod['Status_Pinjam']}**")
+                if rekod['Status_Pinjam'] == "Diluluskan":
                     st.balloons()
                     st.success("Permohonan anda DILULUSKAN. Sila ke stor.")
-            else: st.info("Tiada rekod ditemui.")
+            else: st.warning("Tiada rekod ditemui untuk ID ini.")
 
+# --- MODUL STAFF ---
 elif peranan == "Kakitangan (Staff)":
     st.title("📊 Dashboard Staff DGU")
     col_a, col_b = st.columns([2,1])
     with col_a:
         password = st.text_input("Kata Laluan:", type="password")
     with col_b:
-        with st.popover("🔑 Lupa Kata Laluan?"):
-            id_stf = st.text_input("Masukkan ID Staff (12345):")
-            new_pass = st.text_input("Kata Laluan Baru:", type="password")
-            if st.button("Reset Kata Laluan"):
-                if id_stf == "12345" and new_pass != "":
-                    st.session_state.staff_password = new_pass
-                    st.success("Berjaya!")
-                else: st.error("ID salah.")
+        with st.popover("🔑 Reset"):
+            id_stf = st.text_input("ID Staff (12345):")
+            new_pass = st.text_input("Pass Baru:", type="password")
+            if st.button("Update"):
+                if id_stf == "12345": st.session_state.staff_password = new_pass; st.success("OK")
 
     if password == st.session_state.staff_password:
+        # --- SEKSYEN WOW (ANALYTICS) ---
+        if os.path.isfile(DATA_FILE):
+            df_stat = pd.read_csv(DATA_FILE, dtype={'ID': str})
+            df_alat = pd.read_csv(ALAT_FILE)
+            st.markdown("### 📈 Ringkasan Eksekutif")
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric("Total Mohon", len(df_stat))
+            m2.metric("Pending", len(df_stat[df_stat['Status_Pinjam']=="Menunggu Kelulusan"]))
+            tersedia = len(df_alat[df_alat['Status_Alat']=="Sedia"])
+            m3.metric("Stok Sedia", f"{tersedia}/{len(df_alat)}")
+            m4.metric("Kakitangan", "Aktif ✅")
+            
+            c_g1, c_g2 = st.columns(2)
+            with c_g1: 
+                st.write("📊 **Status Pinjaman**")
+                st.bar_chart(df_stat['Status_Pinjam'].value_counts())
+            with c_g2:
+                st.write("📋 **Aktiviti Mengikut Kelas**")
+                st.line_chart(df_stat['Kelas'].value_counts())
+            st.markdown("---")
+
         t1, t2, t3 = st.tabs(["✅ Pengesahan", "📦 Inventori", "📜 Rekod"])
         with t1:
             if os.path.isfile(DATA_FILE):
-                df_all = pd.read_csv(DATA_FILE, dtype={'No_Siri': str})
+                df_all = pd.read_csv(DATA_FILE, dtype={'No_Siri': str, 'ID': str})
                 df_wait = df_all[df_all['Status_Pinjam'] == "Menunggu Kelulusan"]
                 if not df_wait.empty:
                     for i, row in df_wait.iterrows():
+                        # Paparan Expander dengan Maklumat Lengkap & Emoji (Format WOW)
                         with st.expander(f"🔔 PERMOHONAN: {row['Nama'].split(',')[0]} ({row['Kelas']})"):
                             st.markdown(f"""
                             **Maklumat Lengkap Peminjam:**
@@ -234,21 +261,22 @@ elif peranan == "Kakitangan (Staff)":
                             * 🕒 **Pinjam:** {row['Masa_Pinjam']}
                             * ⏳ **Anggaran Pulang:** {row['Anggaran_Pulang']}
                             """)
-                            c_l, c_t = st.columns(2)
-                            if c_l.button(f"Lulus ✅", key=f"l_{i}", use_container_width=True):
+                            
+                            cl, ct = st.columns(2)
+                            if cl.button(f"Lulus ✅", key=f"l_{i}", use_container_width=True):
                                 df_all.at[i, 'Status_Pinjam'] = "Diluluskan"
                                 df_s = pd.read_csv(ALAT_FILE, dtype={'No_Siri': str})
                                 for s in str(row['No_Siri']).split(", "):
                                     df_s.loc[df_s['No_Siri'] == str(s).strip(), 'Status_Alat'] = "Dipinjam"
                                 df_s.to_csv(ALAT_FILE, index=False); df_all.to_csv(DATA_FILE, index=False)
                                 st.rerun()
-                            if c_t.button(f"Tolak ❌", key=f"t_{i}", use_container_width=True):
+                            if ct.button(f"Tolak ❌", key=f"t_{i}", use_container_width=True):
                                 df_all.at[i, 'Status_Pinjam'] = "Ditolak"
                                 df_s = pd.read_csv(ALAT_FILE, dtype={'No_Siri': str})
                                 for s in str(row['No_Siri']).split(", "):
                                     df_s.loc[df_s['No_Siri'] == str(s).strip(), 'Status_Alat'] = "Sedia"
                                 df_s.to_csv(ALAT_FILE, index=False); df_all.to_csv(DATA_FILE, index=False)
                                 st.rerun()
-                else: st.info("Tiada permohonan.")
+                else: st.info("Tiada permohonan baru buat masa ini. ☕")
         with t2: st.dataframe(pd.read_csv(ALAT_FILE), use_container_width=True)
-        with t3: st.dataframe(pd.read_csv(DATA_FILE), use_container_width=True)
+        with t3: st.dataframe(pd.read_csv(DATA_FILE, dtype={'ID': str}), use_container_width=True)

@@ -50,7 +50,7 @@ def komponen_masa(label_khas):
     return f"{jam}:{minit} {ampm}"
 
 # --- KONFIGURASI HALAMAN ---
-st.set_page_config(page_title="Sistem Pinjam Alat DGU PUO", layout="wide")
+st.set_page_config(page_title="MyUkur PUO", layout="wide")
 
 if 'staff_password' not in st.session_state:
     st.session_state.staff_password = "staff123"
